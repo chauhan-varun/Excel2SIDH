@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Playwright session caches (dynamic per batch)
+.playwright_session*
+
+# Automation log files
+*.log
+
+# Automation results
+results*.json
+
+# Excel result sheets (sensitive candidate data)
+*.xlsx
+
