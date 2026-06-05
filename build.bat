@@ -43,6 +43,9 @@ echo ============================================================
 echo   SUCCESS! Standalone Executable Built Successfully
 echo ============================================================
 echo.
+echo Opening output directory...
+explorer dist
+echo.
 echo You can find your finished software at:
 echo   dist\SIDH_Automator.exe
 echo.
@@ -51,3 +54,4 @@ echo any computer (no python installation needed by the buyer!).
 echo ============================================================
 echo.
 pause
+

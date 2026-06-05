@@ -67,4 +67,4 @@ The packaged application is designed to be user-friendly for resale:
 2. **Dynamic File Picker**: Users can easily browse and load their Excel sheet.
 3. **Smart Parsing**: The app auto-extracts the 7-digit Batch ID from the Excel filename.
 4. **Interactive Logs**: The embedded terminal in the GUI displays execution logs in real-time.
-5. **Session Retention**: All logins are cached locally inside `.playwright_session` so users don't have to log in on every run.
+5. **Session Retention**: Logins are cached locally inside batch-specific directories (`.playwright_session_{batch_id}`) so users don't have to log in on every run for a batch, and multiple batches can run concurrently without session lock conflicts.
