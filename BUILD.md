@@ -26,7 +26,7 @@ pip install playwright openpyxl
 ### Step 3: Compile using PyInstaller
 Run the following packaging command in your terminal:
 ```cmd
-pyinstaller --onefile --noconsole --collect-all playwright --name "SIDH_Automator" gui.py
+python -m PyInstaller --onefile --noconsole --collect-all playwright --name "SIDH_Automator" gui.py
 ```
 
 #### What this command does:
@@ -51,7 +51,7 @@ To compile the application into a standalone binary for Linux:
    ```
 2. Compile:
    ```bash
-   pyinstaller --onefile --noconsole --collect-all playwright --name "SIDH_Automator" gui.py
+   python -m PyInstaller --onefile --noconsole --collect-all playwright --name "SIDH_Automator" gui.py
    ```
 3. Run the binary:
    ```bash

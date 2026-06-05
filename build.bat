@@ -30,7 +30,7 @@ if %errorlevel% neq 0 (
 echo.
 echo [2/3] Compiling package into a single executable...
 echo (This may take 1-2 minutes, please wait...)
-pyinstaller --onefile --noconsole --collect-all playwright --name "SIDH_Automator" gui.py
+python -m PyInstaller --onefile --noconsole --collect-all playwright --name "SIDH_Automator" gui.py
 if %errorlevel% neq 0 (
     echo [ERROR] PyInstaller compilation failed!
     echo.
