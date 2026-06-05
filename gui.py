@@ -51,7 +51,7 @@ class SIDHAutomationApp:
         self.root.configure(bg=self.bg_color)
         
         # Variables
-        self.excel_path_var = tk.StringVar()
+        self.queue = []
         self.batch_id_var = tk.StringVar()
         self.dry_run_var = tk.BooleanVar(value=True)
         self.start_from_var = tk.StringVar(value="1")
@@ -96,6 +96,26 @@ class SIDHAutomationApp:
         style.configure('TCheckbutton', background=self.card_color, foreground=self.text_color, font=('Segoe UI', 10))
         style.map('TCheckbutton', background=[('active', self.card_color)], foreground=[('active', self.text_color)])
 
+        # Treeview Styling for Dark Theme
+        style.configure('Treeview',
+                        background=self.card_color,
+                        foreground=self.text_color,
+                        fieldbackground=self.card_color,
+                        rowheight=25,
+                        font=('Segoe UI', 9),
+                        bordercolor=self.border_color,
+                        borderwidth=1)
+        style.map('Treeview',
+                  background=[('selected', self.accent_color)],
+                  foreground=[('selected', '#ffffff')])
+        
+        style.configure('Treeview.Heading',
+                        background='#222222',
+                        foreground=self.text_color,
+                        font=('Segoe UI', 9, 'bold'))
+        style.map('Treeview.Heading',
+                  background=[('active', '#333333')])
+
     def create_widgets(self):
         # Header / Title Bar
         header_frame = ttk.Frame(self.root, style='Card.TFrame')
@@ -112,32 +132,76 @@ class SIDHAutomationApp:
         config_frame.pack(fill='x', padx=15, pady=5)
         config_frame.configure(padding=15)
 
-        # Excel File Row
-        ttk.Label(config_frame, text="Excel File Path:", style="Card.TLabel").grid(row=0, column=0, sticky='w', pady=5)
-        excel_entry = tk.Entry(config_frame, textvariable=self.excel_path_var, bg=self.bg_color, fg=self.text_color, insertbackground=self.text_color, bd=1, relief='flat', highlightbackground=self.border_color, highlightcolor=self.accent_color, highlightthickness=1)
-        excel_entry.grid(row=0, column=1, columnspan=2, sticky='ew', padx=(10, 10), pady=5)
-        
-        browse_btn = tk.Button(config_frame, text="Browse", command=self.browse_excel, bg="#333333", fg=self.text_color, activebackground="#444444", activeforeground=self.text_color, relief='flat', bd=0, padx=10, pady=2)
-        browse_btn.grid(row=0, column=3, sticky='e', pady=5)
+        # Configure columns of config_frame (Queue on left, settings on right)
+        config_frame.columnconfigure(0, weight=3)
+        config_frame.columnconfigure(1, weight=2)
+
+        # --- Left Side: File Queue ---
+        queue_frame = ttk.Frame(config_frame, style='Card.TFrame')
+        queue_frame.grid(row=0, column=0, sticky='nsew', padx=(0, 15))
+
+        ttk.Label(queue_frame, text="Excel File Queue:", style="Card.TLabel", font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 5))
+
+        # Treeview and scrollbar container
+        tree_container = ttk.Frame(queue_frame, style='Card.TFrame')
+        tree_container.pack(fill='both', expand=True)
+
+        self.queue_tree = ttk.Treeview(tree_container, columns=("filename", "batch_id", "status"), show="headings", height=5, selectmode="browse")
+        self.queue_tree.heading("filename", text="Excel File")
+        self.queue_tree.heading("batch_id", text="Batch ID")
+        self.queue_tree.heading("status", text="Status")
+
+        self.queue_tree.column("filename", width=250, anchor='w')
+        self.queue_tree.column("batch_id", width=90, anchor='center')
+        self.queue_tree.column("status", width=90, anchor='center')
+
+        tree_scroll = ttk.Scrollbar(tree_container, orient="vertical", command=self.queue_tree.yview)
+        self.queue_tree.configure(yscrollcommand=tree_scroll.set)
+
+        self.queue_tree.pack(side='left', fill='both', expand=True)
+        tree_scroll.pack(side='right', fill='y')
+
+        # Bind row selection
+        self.queue_tree.bind("<<TreeviewSelect>>", self.on_queue_select)
+
+        # Buttons for Queue Management
+        btn_frame = ttk.Frame(queue_frame, style='Card.TFrame')
+        btn_frame.pack(fill='x', pady=(10, 0))
+
+        self.add_btn = tk.Button(btn_frame, text="Add File(s)", command=self.browse_excels, bg="#333333", fg=self.text_color, activebackground="#444444", activeforeground=self.text_color, relief='flat', bd=0, padx=12, pady=4)
+        self.add_btn.pack(side='left', padx=(0, 5))
+
+        self.remove_btn = tk.Button(btn_frame, text="Remove Selected", command=self.remove_selected, bg="#333333", fg=self.text_color, activebackground="#444444", activeforeground=self.text_color, relief='flat', bd=0, padx=12, pady=4)
+        self.remove_btn.pack(side='left', padx=5)
+
+        self.clear_btn = tk.Button(btn_frame, text="Clear Queue", command=self.clear_queue, bg="#333333", fg=self.text_color, activebackground="#444444", activeforeground=self.text_color, relief='flat', bd=0, padx=12, pady=4)
+        self.clear_btn.pack(side='left', padx=5)
+
+        # --- Right Side: Selected File Settings ---
+        settings_frame = ttk.Frame(config_frame, style='Card.TFrame')
+        settings_frame.grid(row=0, column=1, sticky='nsew')
+
+        ttk.Label(settings_frame, text="Queue Item Settings:", style="Card.TLabel", font=('Segoe UI', 10, 'bold')).grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 10))
 
         # Batch ID Row
-        ttk.Label(config_frame, text="Batch ID:", style="Card.TLabel").grid(row=1, column=0, sticky='w', pady=5)
-        self.batch_entry = tk.Entry(config_frame, textvariable=self.batch_id_var, bg=self.bg_color, fg=self.text_color, insertbackground=self.text_color, bd=1, relief='flat', highlightbackground=self.border_color, highlightcolor=self.accent_color, highlightthickness=1)
-        self.batch_entry.grid(row=1, column=1, sticky='w', padx=(10, 0), pady=5, width=15)
+        ttk.Label(settings_frame, text="Batch ID:", style="Card.TLabel").grid(row=1, column=0, sticky='w', pady=5)
+        self.batch_entry = tk.Entry(settings_frame, textvariable=self.batch_id_var, width=15, bg=self.bg_color, fg=self.text_color, insertbackground=self.text_color, bd=1, relief='flat', highlightbackground=self.border_color, highlightcolor=self.accent_color, highlightthickness=1)
+        self.batch_entry.grid(row=1, column=1, sticky='w', padx=(10, 0), pady=5)
+        self.batch_id_var.trace_add("write", self.on_batch_id_changed)
 
         # Start From Row
-        ttk.Label(config_frame, text="Start From Row Index:", style="Card.TLabel").grid(row=1, column=2, sticky='w', pady=5, padx=(20, 0))
-        start_entry = tk.Entry(config_frame, textvariable=self.start_from_var, bg=self.bg_color, fg=self.text_color, insertbackground=self.text_color, bd=1, relief='flat', highlightbackground=self.border_color, highlightcolor=self.accent_color, highlightthickness=1)
-        start_entry.grid(row=1, column=3, sticky='w', pady=5, width=10)
+        ttk.Label(settings_frame, text="Start Row Index:", style="Card.TLabel").grid(row=2, column=0, sticky='w', pady=5)
+        start_entry = tk.Entry(settings_frame, textvariable=self.start_from_var, width=10, bg=self.bg_color, fg=self.text_color, insertbackground=self.text_color, bd=1, relief='flat', highlightbackground=self.border_color, highlightcolor=self.accent_color, highlightthickness=1)
+        start_entry.grid(row=2, column=1, sticky='w', padx=(10, 0), pady=5)
 
         # Student Filter Row
-        ttk.Label(config_frame, text="Specific Candidate ID (Optional):", style="Card.TLabel").grid(row=2, column=0, sticky='w', pady=5)
-        student_entry = tk.Entry(config_frame, textvariable=self.student_filter_var, bg=self.bg_color, fg=self.text_color, insertbackground=self.text_color, bd=1, relief='flat', highlightbackground=self.border_color, highlightcolor=self.accent_color, highlightthickness=1)
-        student_entry.grid(row=2, column=1, columnspan=2, sticky='w', padx=(10, 0), pady=5, width=25)
+        ttk.Label(settings_frame, text="Candidate ID (Opt):", style="Card.TLabel").grid(row=3, column=0, sticky='w', pady=5)
+        student_entry = tk.Entry(settings_frame, textvariable=self.student_filter_var, width=20, bg=self.bg_color, fg=self.text_color, insertbackground=self.text_color, bd=1, relief='flat', highlightbackground=self.border_color, highlightcolor=self.accent_color, highlightthickness=1)
+        student_entry.grid(row=3, column=1, sticky='w', padx=(10, 0), pady=5)
 
         # Dry Run Checkbox
-        dry_run_check = ttk.Checkbutton(config_frame, text="Dry Run Mode (Test fill only, don't submit)", variable=self.dry_run_var)
-        dry_run_check.grid(row=3, column=0, columnspan=3, sticky='w', pady=(10, 5))
+        dry_run_check = ttk.Checkbutton(settings_frame, text="Dry Run Mode (Test fill only)", variable=self.dry_run_var)
+        dry_run_check.grid(row=4, column=0, columnspan=2, sticky='w', pady=(10, 5))
 
         # Control Row
         control_frame = ttk.Frame(self.root, style='TFrame')
@@ -199,17 +263,97 @@ class SIDHAutomationApp:
         root_logger = logging.getLogger()
         root_logger.addHandler(handler)
 
-    def browse_excel(self):
-        filename = filedialog.askopenfilename(
-            title="Select Excel Result Sheet",
+    def browse_excels(self):
+        filenames = filedialog.askopenfilenames(
+            title="Select Excel Result Sheets",
             filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
         )
-        if filename:
-            self.excel_path_var.set(filename)
-            # Try to auto-extract batch ID from the name (e.g. 3391656)
-            match = re.search(r'\d{6,8}', os.path.basename(filename))
-            if match:
-                self.batch_id_var.set(match.group(0))
+        if filenames:
+            for filename in filenames:
+                # Check if already in queue
+                if any(item["file_path"] == filename for item in self.queue):
+                    continue
+                
+                # Auto-extract batch ID (e.g. 3391656)
+                batch_id = ""
+                match = re.search(r'\d{6,8}', os.path.basename(filename))
+                if match:
+                    batch_id = match.group(0)
+                
+                # Add to queue data source
+                item = {
+                    "file_path": filename,
+                    "batch_id": batch_id,
+                    "status": "Pending"
+                }
+                self.queue.append(item)
+                
+                # Insert to Treeview
+                display_name = os.path.basename(filename)
+                item_id = self.queue_tree.insert("", "end", values=(display_name, batch_id, "Pending"))
+                # Store treeview item_id references
+                item["tree_id"] = item_id
+            
+            # Select the last added item if nothing selected
+            if not self.queue_tree.selection() and self.queue:
+                self.queue_tree.selection_set(self.queue[-1]["tree_id"])
+
+    def remove_selected(self):
+        selected = self.queue_tree.selection()
+        if not selected:
+            return
+        
+        for item_id in selected:
+            self.queue_tree.delete(item_id)
+            self.queue = [item for item in self.queue if item.get("tree_id") != item_id]
+            
+        # Select another item or clear variables
+        if self.queue:
+            self.queue_tree.selection_set(self.queue[0]["tree_id"])
+        else:
+            self.batch_id_var.set("")
+
+    def clear_queue(self):
+        for item in self.queue:
+            if "tree_id" in item:
+                self.queue_tree.delete(item["tree_id"])
+        self.queue.clear()
+        self.batch_id_var.set("")
+
+    def on_queue_select(self, event):
+        selected = self.queue_tree.selection()
+        if not selected:
+            return
+        
+        item_id = selected[0]
+        # Find item in self.queue
+        for item in self.queue:
+            if item.get("tree_id") == item_id:
+                # Load its batch ID into the variable
+                # Temporary disable trace to avoid infinite loop updating
+                self._block_trace = True
+                self.batch_id_var.set(item["batch_id"])
+                self._block_trace = False
+                break
+
+    def on_batch_id_changed(self, *args):
+        if getattr(self, "_block_trace", False):
+            return
+        
+        selected = self.queue_tree.selection()
+        if not selected:
+            return
+        
+        item_id = selected[0]
+        new_batch_id = self.batch_id_var.get().strip()
+        
+        # Update self.queue entry
+        for item in self.queue:
+            if item.get("tree_id") == item_id:
+                item["batch_id"] = new_batch_id
+                # Update Treeview text
+                self.queue_tree.set(item_id, column="batch_id", value=new_batch_id)
+                break
 
     def toggle_automation(self):
         if self.is_running:
@@ -218,19 +362,16 @@ class SIDHAutomationApp:
             self.start_automation()
 
     def start_automation(self):
-        excel_path = self.excel_path_var.get().strip()
-        batch_id = self.batch_id_var.get().strip()
-        
-        # Validation
-        if not excel_path:
-            messagebox.showerror("Error", "Please select an Excel sheet first.")
+        if not self.queue:
+            messagebox.showerror("Error", "Please add Excel sheets to the queue first.")
             return
-        if not os.path.exists(excel_path):
-            messagebox.showerror("Error", f"Excel file does not exist:\n{excel_path}")
-            return
-        if not batch_id:
-            messagebox.showerror("Error", "Please enter a valid Batch ID.")
-            return
+            
+        # Validation of Batch IDs in the queue
+        for idx, item in enumerate(self.queue):
+            if not item["batch_id"]:
+                messagebox.showerror("Error", f"Item #{idx+1} ({os.path.basename(item['file_path'])}) has no Batch ID.\nPlease select it and set a Batch ID.")
+                self.queue_tree.selection_set(item["tree_id"])
+                return
             
         try:
             start_from = int(self.start_from_var.get().strip())
@@ -239,14 +380,21 @@ class SIDHAutomationApp:
             return
 
         self.is_running = True
+        
+        # Disable inputs and buttons
         self.action_btn.configure(text="Stop Automation", bg="#ff3333", activebackground="#cc2222")
-        self.status_label.configure(text="Initializing browser...", foreground=self.accent_color)
+        self.add_btn.configure(state="disabled")
+        self.remove_btn.configure(state="disabled")
+        self.clear_btn.configure(state="disabled")
+        self.batch_entry.configure(state="disabled")
+        
+        self.status_label.configure(text="Initializing queue...", foreground=self.accent_color)
         self.log_widget.configure(state='normal')
         self.log_widget.delete('1.0', 'end')
         self.log_widget.configure(state='disabled')
 
-        # Launch the automation in a background thread to prevent GUI freezing
-        self.thread = threading.Thread(target=self.run_process, args=(excel_path, batch_id, start_from))
+        # Launch the automation queue in a background thread
+        self.thread = threading.Thread(target=self.run_queue, args=(start_from,))
         self.thread.daemon = True
         self.thread.start()
 
@@ -254,8 +402,78 @@ class SIDHAutomationApp:
         self.status_label.configure(text="Stopping...", foreground="#ff3333")
         self.is_running = False
 
+    def update_item_status(self, tree_id, status):
+        def update():
+            self.queue_tree.set(tree_id, column="status", value=status)
+        self.root.after(0, update)
+
+    def run_queue(self, start_from):
+        total_files = len(self.queue)
+        success_count = 0
+        failed_count = 0
+        
+        for index, item in enumerate(self.queue):
+            if not self.is_running:
+                break
+                
+            file_path = item["file_path"]
+            batch_id = item["batch_id"]
+            tree_id = item["tree_id"]
+            
+            # Select the item in the treeview so user sees what is running
+            def select_item(tid=tree_id):
+                self.queue_tree.selection_set(tid)
+                self.queue_tree.see(tid)
+            self.root.after(0, select_item)
+            
+            # Set status to Running
+            self.update_item_status(tree_id, "Running")
+            
+            # Update overall progress status label
+            filename = os.path.basename(file_path)
+            self.root.after(0, lambda idx=index+1, name=filename: self.status_label.configure(
+                text=f"File {idx} of {total_files}: {name}", foreground=self.accent_color
+            ))
+            
+            # Log queue entry
+            logging.info(f"\nQueue Progress: Processing {index+1}/{total_files} | File: {filename} (Batch ID: {batch_id})")
+            
+            # Execute the process for this file
+            success = self.run_process(file_path, batch_id, start_from)
+            
+            if success:
+                self.update_item_status(tree_id, "Success")
+                success_count += 1
+            else:
+                self.update_item_status(tree_id, "Failed")
+                failed_count += 1
+                
+            # For subsequent files, start_from resets to 1 (usually you only want start_from for the first file if resumed)
+            start_from = 1
+            
+        # Re-enable inputs
+        def enable_ui():
+            self.is_running = False
+            self.action_btn.configure(text="Start Automation", bg=self.accent_color, activebackground=self.accent_hover)
+            self.status_label.configure(text="Ready to start.", foreground=self.text_secondary)
+            self.add_btn.configure(state="normal")
+            self.remove_btn.configure(state="normal")
+            self.clear_btn.configure(state="normal")
+            self.batch_entry.configure(state="normal")
+            
+            summary_msg = f"Queue finished.\n\nProcessed: {total_files}\nSuccess: {success_count}\nFailed: {failed_count}"
+            messagebox.showinfo("Queue Finished", summary_msg)
+            
+        self.root.after(0, enable_ui)
+
+    def close_file_handler(self):
+        if hasattr(self, 'file_handler') and self.file_handler:
+            logging.getLogger().removeHandler(self.file_handler)
+            self.file_handler.close()
+            self.file_handler = None
+
     def run_process(self, excel_path, batch_id, start_from):
-        global BATCH_ID, EXCEL_FILE, BATCH_PAGE_URL
+        global BATCH_PAGE_URL
         
         try:
             # Dynamically update the configuration global variables of automate.py
@@ -264,11 +482,7 @@ class SIDHAutomationApp:
             automate.EXCEL_FILE = excel_path
             automate.BATCH_PAGE_URL = f"{BASE_URL}/admin-profile/assessor/master-assessor/view-batch-details-new/PENDING/{batch_id};batches=assessment"
 
-            # Remove previous file handler if any exists
-            if hasattr(self, 'file_handler') and self.file_handler:
-                logging.getLogger().removeHandler(self.file_handler)
-                self.file_handler.close()
-                self.file_handler = None
+            self.close_file_handler()
 
             # Add FileHandler dynamically for this batch ID
             log_file = f"automation_{batch_id}.log"
@@ -284,8 +498,8 @@ class SIDHAutomationApp:
                 students = [s for s in students if s.enrollment_no == student_filter]
                 if not students:
                     logging.error(f"Student {student_filter} not found in Excel sheet.")
-                    self.finish_run("Student not found", False)
-                    return
+                    self.close_file_handler()
+                    return False
 
             # Ensure chromium is installed (crucial for PyInstaller packaging)
             try:
@@ -305,13 +519,13 @@ class SIDHAutomationApp:
                         logging.info("✅ Chromium browser downloaded and installed successfully!")
                     except Exception as download_err:
                         logging.error(f"Failed to automatically download Chromium: {download_err}")
-                        self.finish_run("Failed to install browser dependencies. Run 'playwright install chromium' manually.", False)
-                        return
+                        self.close_file_handler()
+                        return False
                 else:
                     raise e
 
             self.root.after(0, lambda: self.status_label.configure(
-                text=f"Browser active. Log in to portal manually.", foreground="#00aaff"
+                text="Browser active. Log in to portal manually.", foreground="#00aaff"
             ))
 
             with sync_playwright() as p:
@@ -340,6 +554,8 @@ class SIDHAutomationApp:
                 is_logged_in = False
                 # Try to check if we are already logged in
                 for _ in range(3):
+                    if not self.is_running:
+                        break
                     for pge in context.pages:
                         try:
                             if pge.locator(f"text=Batch ID - {batch_id}").first.is_visible(timeout=1000) or \
@@ -353,15 +569,36 @@ class SIDHAutomationApp:
                         break
                     time.sleep(1)
 
+                if not self.is_running:
+                    context.close()
+                    self.close_file_handler()
+                    return False
+
                 if not is_logged_in:
                     logging.info("🔒 Portal not logged in. Waiting for assessor to log in manually...")
                     # Show an alert asking to log in
-                    self.root.after(0, lambda: messagebox.showinfo(
-                        "Login Required", 
-                        "A browser window has opened.\n\n1. Please log in to the Skill India Portal manually.\n2. Once fully logged in and on the batch details page, click OK here to start the automation."
-                    ))
+                    login_ok = threading.Event()
+                    def prompt_login():
+                        messagebox.showinfo(
+                            "Login Required", 
+                            f"A browser window has opened for Batch {batch_id}.\n\n1. Please log in to the Skill India Portal manually.\n2. Once fully logged in and on the batch details page, click OK here to start the automation."
+                        )
+                        login_ok.set()
+                    self.root.after(0, prompt_login)
+                    # Wait for user to click OK
+                    while not login_ok.is_set():
+                        if not self.is_running:
+                            context.close()
+                            self.close_file_handler()
+                            return False
+                        time.sleep(0.5)
 
                 # Re-verify page context
+                if not self.is_running:
+                    context.close()
+                    self.close_file_handler()
+                    return False
+
                 from automate import get_active_page
                 active_page = get_active_page(context)
                 
@@ -394,29 +631,13 @@ class SIDHAutomationApp:
 
                 automation.print_summary()
                 context.close()
-                self.finish_run("Automation completed successfully!", True)
+                self.close_file_handler()
+                return self.is_running
 
         except Exception as e:
             logging.error(f"Critical process failure: {e}")
-            self.finish_run(f"Process crashed: {e}", False)
-
-    def finish_run(self, message, is_success):
-        # Remove and close file handler if it exists
-        if hasattr(self, 'file_handler') and self.file_handler:
-            logging.getLogger().removeHandler(self.file_handler)
-            self.file_handler.close()
-            self.file_handler = None
-
-        def update():
-            self.is_running = False
-            self.action_btn.configure(text="Start Automation", bg=self.accent_color, activebackground=self.accent_hover)
-            self.status_label.configure(text="Ready to start.", foreground=self.text_secondary)
-            if is_success:
-                messagebox.showinfo("Success", message)
-            else:
-                messagebox.showerror("Error", message)
-
-        self.root.after(0, update)
+            self.close_file_handler()
+            return False
 
 # ─── App Execution ──────────────────────────────────────────────────────────
 

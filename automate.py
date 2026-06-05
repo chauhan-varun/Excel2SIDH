@@ -120,8 +120,33 @@ def read_excel_data(filepath: str) -> list[StudentData]:
     """Read all student marks data from the Excel file."""
     log.info(f"Reading Excel file: {filepath}")
     wb = openpyxl.load_workbook(filepath, data_only=True)
-    ws = wb[SHEET_NAME]
-
+    
+    sheet_names = wb.sheetnames
+    ws = None
+    
+    # 1. Try exact match
+    if SHEET_NAME in sheet_names:
+        ws = wb[SHEET_NAME]
+    else:
+        # 2. Try case-insensitive and stripped match
+        clean_target = SHEET_NAME.strip().lower()
+        for name in sheet_names:
+            if name.strip().lower() == clean_target:
+                ws = wb[name]
+                break
+        
+        # 3. Try contains match
+        if not ws:
+            for name in sheet_names:
+                if clean_target in name.lower():
+                    ws = wb[name]
+                    break
+        
+        # 4. Fallback to active sheet
+        if not ws:
+            ws = wb.active
+            log.warning(f"Could not find sheet matching '{SHEET_NAME}'. Defaulting to active sheet: '{ws.title}'")
+    
     students = []
     row = STUDENT_DATA_START_ROW
 
