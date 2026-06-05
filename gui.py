@@ -221,12 +221,12 @@ class SIDHAutomationApp:
         ttk.Label(log_frame, text="Automation Logs", style="Card.TLabel", font=('Segoe UI', 10, 'bold')).pack(anchor='w', pady=(0, 5))
         
         # ScrolledText for logs
-        self.log_widget = ScrolledText(log_frame, bg="#0d0d0d", fg="#00ff00", insertbackground="#ffffff", relief='flat', bd=1, font=('Consolas', 9.5), wrap='word')
+        self.log_widget = ScrolledText(log_frame, bg="#0d0d0d", fg="#00ff00", insertbackground="#ffffff", relief='flat', bd=1, font=('Consolas', 10), wrap='word')
         self.log_widget.pack(fill='both', expand=True)
         self.log_widget.tag_configure("info", foreground="#00ff00")
         self.log_widget.tag_configure("warning", foreground="#ffaa00")
         self.log_widget.tag_configure("error", foreground="#ff3333")
-        self.log_widget.tag_configure("success", foreground="#33ff33", font=('Consolas', 9.5, 'bold'))
+        self.log_widget.tag_configure("success", foreground="#33ff33", font=('Consolas', 10, 'bold'))
 
         # Grid configuration for config frame
         config_frame.columnconfigure(1, weight=1)
